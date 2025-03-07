@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Связки товаров</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .source-group {
+            background: #f8f8f8;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .target-item {
+            margin-left: 20px;
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+        }
+        button {
+            cursor: pointer;
+            margin: 5px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+        button:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <h2>Создание связки товаров</h2>
+
+    <label>Товар-источник:</label>
+    <select id="source_product"></select>
+
+    <label>Опция:</label>
+    <select id="source_option"></select>
+
+    <label>Значение:</label>
+    <select id="source_value"></select>
+    <span id="source_price"></span>
+
+    <hr>
+
+    <div id="target_container">
+        <div class="target_block">
+            <label>Товар-получатель:</label>
+            <select class="target_product"></select>
+
+            <label>Опция:</label>
+            <select class="target_option"></select>
+
+            <label>Значение:</label>
+            <select class="target_value"></select>
+            <span class="target_price"></span>
+
+            <button class="remove_target">Удалить</button>
+        </div>
+    </div>
+
+    <button id="add_target">Добавить еще получателя</button>
+    <button id="save_link">Сохранить</button>
+
+    <h2>Список связок</h2>
+    <button id="update_all_prices">Обновить все цены</button>
+    <div id="links_container"></div>
+
+    <h2>Лог обновления цен</h2>
+    <pre id="update_log">Загрузка лога...</pre>
+
+    <script>
+        function loadLinks() {
+            $.getJSON('get_links.php', function (data) {
+                let htmlContent = '';
+                $.each(data, function (index, group) {
+                    htmlContent += `<div class="source-group">
+                        <strong>${group.source_product} - ${group.source_option} - ${group.source_value}</strong>
+                        (Цена: ${group.source_price || 'Неизвестно'})
+                        <div class="targets">`;
+                    $.each(group.targets, function (i, target) {
+                        htmlContent += `<div class="target-item">
+                            ${target.target_product} - ${target.target_option} - ${target.target_value}
+                            (Цена: ${target.target_price || 'Неизвестно'})
+                            <button class="update-price" data-id="${target.id}">Обновить цену</button>
+                            <button class="delete-link" data-id="${target.id}">Удалить</button>
+                        </div>`;
+                    });
+                    htmlContent += '</div></div>';
+                });
+                $('#links_container').html(htmlContent);
+
+                $('.update-price').click(function () {
+                    let id = $(this).data('id');
+                    updatePrice(id);
+                });
+
+                $('.delete-link').click(function () {
+                    let id = $(this).data('id');
+                    deleteLink(id);
+                });
+            });
+        }
+
+        function updatePrice(id) {
+            $.post('update_price.php', JSON.stringify({ id: id }), function (response) {
+                let logEntry = `ID: ${id} - ${response.message} (Новая цена: ${response.price})`;
+                $('#update_log').append(logEntry + '\n');
+                saveLog(logEntry);
+                alert(response.message);
+                loadLinks();
+            }, 'json');
+        }
+
+        function updateAllPrices() {
+            $.post('update_all_prices.php', function (response) {
+                let logEntry = response.message + '\nВсе цены обновлены успешно.';
+                $('#update_log').append(logEntry + '\n');
+                saveLog(logEntry);
+                alert(response.message);
+                loadLinks();
+            }, 'json');
+        }
+
+        function saveLog(entry) {
+            $.post('save_log.php', { log: entry });
+        }
+
+        function loadLog() {
+            $.getJSON('save_log.php?load=true', function (response) {
+                if (response.status === 'success') {
+                    $('#update_log').text(response.log);
+                }
+            });
+        }
+
+        function deleteLink(id) {
+            if (confirm('Удалить связку?')) {
+                $.post('delete_link.php', JSON.stringify({ id: id }), function (response) {
+                    alert(response.message);
+                    loadLinks();
+                }, 'json');
+            }
+        }
+
+        function loadProducts(selector) {
+            $.getJSON('get_products.php', function (data) {
+                $(selector).html('<option value="">Выберите товар</option>');
+                $.each(data, function (index, item) {
+                    $(selector).append(`<option value="${item.product_id}">${item.name}</option>`);
+                });
+            });
+        }
+
+        function loadOptions(productSelector, optionSelector) {
+            $(productSelector).change(function () {
+                $.getJSON('get_options.php', { product_id: $(this).val() }, function (data) {
+                    $(optionSelector).html('<option value="">Выберите опцию</option>');
+                    $.each(data, function (index, item) {
+                        $(optionSelector).append(`<option value="${item.option_id}">${item.name}</option>`);
+                    });
+                });
+            });
+        }
+
+        function loadOptionValues(productSelector, optionSelector, valueSelector, priceSpan) {
+            $(optionSelector).change(function () {
+                $.getJSON('get_option_values.php', { 
+                    product_id: $(productSelector).val(), 
+                    option_id: $(this).val() 
+                }, function (data) {
+                    $(valueSelector).html('<option value="">Выберите значение</option>');
+                    $.each(data, function (index, item) {
+                        $(valueSelector).append(`<option value="${item.option_value_id}" data-price="${item.price}">${item.name}</option>`);
+                    });
+                    if (priceSpan) {
+                        priceSpan.text(data.length > 0 ? `Цена: ${data[0].price}` : '');
+                    }
+                });
+            });
+        }
+
+        function bindTargetEvents(target) {
+            target.find('.target_product').change(function () {
+                let productSelector = $(this);
+                let optionSelector = productSelector.closest('.target_block').find('.target_option');
+                let valueSelector = productSelector.closest('.target_block').find('.target_value');
+                let priceSpan = productSelector.closest('.target_block').find('.target_price');
+                loadOptions(productSelector, optionSelector);
+                loadOptionValues(productSelector, optionSelector, valueSelector, priceSpan);
+            });
+
+            target.find('.target_option').change(function () {
+                let optionSelector = $(this);
+                let productSelector = optionSelector.closest('.target_block').find('.target_product');
+                let valueSelector = optionSelector.closest('.target_block').find('.target_value');
+                let priceSpan = optionSelector.closest('.target_block').find('.target_price');
+                loadOptionValues(productSelector, optionSelector, valueSelector, priceSpan);
+            });
+
+            target.find('.remove_target').click(function () {
+                $(this).closest('.target_block').remove();
+            });
+        }
+
+        $(document).ready(function () {
+            loadProducts('#source_product');
+            loadOptions('#source_product', '#source_option');
+            loadOptionValues('#source_product', '#source_option', '#source_value', $('#source_price'));
+
+            bindTargetEvents($('.target_block'));
+
+            $('#add_target').click(function () {
+                let newTarget = $('.target_block:first').clone();
+                newTarget.find('.target_product, .target_option, .target_value').val("");
+                newTarget.find('.target_price').text("");
+                $('#target_container').append(newTarget);
+                bindTargetEvents(newTarget);
+                loadProducts(newTarget.find('.target_product')); // Загрузка продуктов для нового получателя
+            });
+
+            $('#save_link').click(function () {
+                let data = {
+                    source_product_id: $('#source_product').val(),
+                    source_option_id: $('#source_option').val(),
+                    source_value_id: $('#source_value').val(),
+                    targets: []
+                };
+
+                $('.target_block').each(function () {
+                    data.targets.push({
+                        target_product_id: $(this).find('.target_product').val(),
+                        target_option_id: $(this).find('.target_option').val(),
+                        target_value_id: $(this).find('.target_value').val()
+                    });
+                });
+
+                $.post('save_link.php', JSON.stringify(data), function (response) {
+                    alert(response.message);
+                    loadLinks();
+                }, 'json');
+            });
+
+            loadLinks();
+            loadLog();
+            $('#update_all_prices').click(updateAllPrices);
+        });
+    </script>
+</body>
+</html>
