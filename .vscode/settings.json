@@ -1,0 +1,6 @@
+{
+    "php.validate.executablePath": "D:\\OSPanel\\modules\\php\\PHP_7.4\\php.exe",
+    "files.watcherInclude": [
+        ""
+    ]
+}
