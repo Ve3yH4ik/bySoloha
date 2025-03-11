@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +11,7 @@
             font-family: Arial, sans-serif;
             margin: 20px;
         }
+
         .source-group {
             background: #f8f8f8;
             padding: 10px;
@@ -17,11 +19,13 @@
             border-radius: 5px;
             border: 1px solid #ddd;
         }
-        .target-item {
+
+        .option-set {
             margin-left: 20px;
             padding: 5px;
             border-bottom: 1px solid #ddd;
         }
+
         button {
             cursor: pointer;
             margin: 5px;
@@ -29,81 +33,118 @@
             border-radius: 3px;
             border: 1px solid #ddd;
         }
+
         button:hover {
             background: #e0e0e0;
         }
+
+        .tab {
+            display: none;
+        }
+
+        .tab.active {
+            display: block;
+        }
+
+        .tabs {
+            margin-bottom: 20px;
+        }
+
+        .tabs button {
+            padding: 10px 20px;
+            border: none;
+            background: #ddd;
+            cursor: pointer;
+        }
+
+        .tabs button.active {
+            background: #bbb;
+        }
     </style>
 </head>
+
 <body>
-    <h2>Создание связки товаров</h2>
-
-    <label>Товар-источник:</label>
-    <select id="source_product"></select>
-
-    <label>Опция:</label>
-    <select id="source_option"></select>
-
-    <label>Значение:</label>
-    <select id="source_value"></select>
-    <span id="source_price"></span>
-
-    <hr>
-
-    <div id="target_container">
-        <div class="target_block">
-            <label>Товар-получатель:</label>
-            <select class="target_product"></select>
-
-            <label>Опция:</label>
-            <select class="target_option"></select>
-
-            <label>Значение:</label>
-            <select class="target_value"></select>
-            <span class="target_price"></span>
-
-            <button class="remove_target">Удалить</button>
-        </div>
+    <div class="tabs">
+        <button class="tablink active" onclick="openTab(event, 'create')">Создание набора опций</button>
+        <button class="tablink" onclick="openTab(event, 'log')">Лог обновления цен</button>
     </div>
 
-    <button id="add_target">Добавить еще получателя</button>
-    <button id="save_link">Сохранить</button>
+    <div id="create" class="tab active">
+        <h2>Создание набора опций для товара</h2>
 
-    <h2>Список связок</h2>
-    <button id="update_all_prices">Обновить все цены</button>
-    <div id="links_container"></div>
+        <label>Товар-источник:</label>
+        <select id="source_product"></select>
 
-    <h2>Лог обновления цен</h2>
-    <pre id="update_log">Загрузка лога...</pre>
+        <hr>
+
+        <div id="option_set_container">
+            <div class="option_set_block">
+                <label>Опция:</label>
+                <select class="option"></select>
+
+                <label>Значение:</label>
+                <select class="value"></select>
+                <span class="price"></span>
+
+                <button class="remove_option_set">Удалить</button>
+            </div>
+        </div>
+
+        <button id="add_option_set">Добавить еще опцию</button>
+        <button id="save_option_set">Сохранить</button>
+
+        <h2>Список наборов опций</h2>
+        <button id="update_all_prices">Обновить все цены</button>
+        <div id="option_sets_container"></div>
+    </div>
+
+    <div id="log" class="tab">
+        <h2>Лог обновления цен</h2>
+        <pre id="update_log">Загрузка лога...</pre>
+    </div>
 
     <script>
-        function loadLinks() {
-            $.getJSON('get_links.php', function (data) {
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablink");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        function loadOptionSets() {
+            $.getJSON('get_option_sets.php', function (data) {
                 let htmlContent = '';
                 $.each(data, function (index, group) {
                     htmlContent += `<div class="source-group">
-                        <strong>${group.source_product} - ${group.source_option} - ${group.source_value}</strong>
-                        (Цена: ${group.source_price || 'Неизвестно'})
-                        <div class="targets">`;
-                    $.each(group.targets, function (i, target) {
-                        htmlContent += `<div class="target-item">
-                            ${target.target_product} - ${target.target_option} - ${target.target_value}
-                            (Цена: ${target.target_price || 'Неизвестно'})
-                            <button class="update-price" data-id="${target.id}">Обновить цену</button>
-                            <button class="delete-link" data-id="${target.id}">Удалить</button>
+                        <strong>${group.source_product}</strong>
+                        <div class="option-sets">`;
+                    $.each(group.option_sets, function (i, option_set) {
+                        htmlContent += `<div class="option-set">
+                            ${option_set.option} - ${option_set.value}
+                            (Цена: ${option_set.price || 'Неизвестно'})
+                            <button class="update-price" data-id="${option_set.id}">Обновить цену</button>
+                            <button class="delete-option-set" data-id="${option_set.id}">Удалить</button>
                         </div>`;
                     });
                     htmlContent += '</div></div>';
                 });
-                $('#links_container').html(htmlContent);
+                $('#option_sets_container').html(htmlContent);
 
                 $('.update-price').click(function () {
                     let id = $(this).data('id');
                     updatePrice(id);
                 });
 
-                $('.delete-link').click(function () {
+                $('.delete-option-set').click(function () {
                     let id = $(this).data('id');
-                    deleteLink(id);
+                    deleteOptionSet(id);
                 });
             });
         }
@@ -114,7 +155,7 @@
                 $('#update_log').append(logEntry + '\n');
                 saveLog(logEntry);
                 alert(response.message);
-                loadLinks();
+                loadOptionSets();
             }, 'json');
         }
 
@@ -124,7 +165,7 @@
                 $('#update_log').append(logEntry + '\n');
                 saveLog(logEntry);
                 alert(response.message);
-                loadLinks();
+                loadOptionSets();
             }, 'json');
         }
 
@@ -140,11 +181,11 @@
             });
         }
 
-        function deleteLink(id) {
-            if (confirm('Удалить связку?')) {
-                $.post('delete_link.php', JSON.stringify({ id: id }), function (response) {
+        function deleteOptionSet(id) {
+            if (confirm('Удалить набор опций?')) {
+                $.post('delete_option_set.php', JSON.stringify({ id: id }), function (response) {
                     alert(response.message);
-                    loadLinks();
+                    loadOptionSets();
                 }, 'json');
             }
         }
@@ -160,97 +201,104 @@
 
         function loadOptions(productSelector, optionSelector) {
             $(productSelector).change(function () {
+                $(optionSelector).html('<option value="">Выберите опцию</option>'); // Очистка опций
                 $.getJSON('get_options.php', { product_id: $(this).val() }, function (data) {
-                    $(optionSelector).html('<option value="">Выберите опцию</option>');
+                    $(optionSelector).html('<option value="">Выберите опцию</option>'); // Очистка опций перед добавлением новых
                     $.each(data, function (index, item) {
                         $(optionSelector).append(`<option value="${item.option_id}">${item.name}</option>`);
                     });
+                    $(optionSelector).trigger('change'); // Триггерим событие change для загрузки значений опций
                 });
             });
         }
 
         function loadOptionValues(productSelector, optionSelector, valueSelector, priceSpan) {
             $(optionSelector).change(function () {
-                $.getJSON('get_option_values.php', { 
-                    product_id: $(productSelector).val(), 
-                    option_id: $(this).val() 
+                $(valueSelector).html('<option value="">Выберите значение</option>'); // Очистка значений
+                $.getJSON('get_option_values.php', {
+                    product_id: $(productSelector).val(),
+                    option_id: $(this).val()
                 }, function (data) {
-                    $(valueSelector).html('<option value="">Выберите значение</option>');
+                    $(valueSelector).html('<option value="">Выберите значение</option>'); // Очистка значений перед добавлением новых
                     $.each(data, function (index, item) {
                         $(valueSelector).append(`<option value="${item.option_value_id}" data-price="${item.price}">${item.name}</option>`);
                     });
-                    if (priceSpan) {
-                        priceSpan.text(data.length > 0 ? `Цена: ${data[0].price}` : '');
-                    }
                 });
+            });
+
+            $(valueSelector).change(function () {
+                let selectedOption = $(this).find('option:selected');
+                let price = selectedOption.data('price');
+                priceSpan.text(price ? `Цена: ${price}` : '');
             });
         }
 
-        function bindTargetEvents(target) {
-            target.find('.target_product').change(function () {
-                let productSelector = $(this);
-                let optionSelector = productSelector.closest('.target_block').find('.target_option');
-                let valueSelector = productSelector.closest('.target_block').find('.target_value');
-                let priceSpan = productSelector.closest('.target_block').find('.target_price');
-                loadOptions(productSelector, optionSelector);
-                loadOptionValues(productSelector, optionSelector, valueSelector, priceSpan);
-            });
-
-            target.find('.target_option').change(function () {
+        function bindOptionSetEvents(optionSet) {
+            optionSet.find('.option').change(function () {
                 let optionSelector = $(this);
-                let productSelector = optionSelector.closest('.target_block').find('.target_product');
-                let valueSelector = optionSelector.closest('.target_block').find('.target_value');
-                let priceSpan = optionSelector.closest('.target_block').find('.target_price');
+                let productSelector = optionSelector.closest('.option_set_block').find('.source_product');
+                let valueSelector = optionSelector.closest('.option_set_block').find('.value');
+                let priceSpan = optionSelector.closest('.option_set_block').find('.price');
                 loadOptionValues(productSelector, optionSelector, valueSelector, priceSpan);
             });
 
-            target.find('.remove_target').click(function () {
-                $(this).closest('.target_block').remove();
+            optionSet.find('.remove_option_set').click(function () {
+                $(this).closest('.option_set_block').remove();
             });
         }
 
         $(document).ready(function () {
             loadProducts('#source_product');
-            loadOptions('#source_product', '#source_option');
-            loadOptionValues('#source_product', '#source_option', '#source_value', $('#source_price'));
+            loadOptions('#source_product', '.option');
+            loadOptionValues('#source_product', '.option', '.value', $('.price'));
 
-            bindTargetEvents($('.target_block'));
-
-            $('#add_target').click(function () {
-                let newTarget = $('.target_block:first').clone();
-                newTarget.find('.target_product, .target_option, .target_value').val("");
-                newTarget.find('.target_price').text("");
-                $('#target_container').append(newTarget);
-                bindTargetEvents(newTarget);
-                loadProducts(newTarget.find('.target_product')); // Загрузка продуктов для нового получателя
+            $('#source_product').change(function () {
+                $('.option_set_block').each(function () {
+                    let optionSelector = $(this).find('.option');
+                    let valueSelector = $(this).find('.value');
+                    let priceSpan = $(this).find('.price');
+                    loadOptions('#source_product', optionSelector);
+                    loadOptionValues('#source_product', optionSelector, valueSelector, priceSpan);
+                });
             });
 
-            $('#save_link').click(function () {
+            bindOptionSetEvents($('.option_set_block'));
+
+            $('#add_option_set').click(function () {
+                let newOptionSet = $('.option_set_block:first').clone();
+                newOptionSet.find('.option, .value').val("");
+                newOptionSet.find('.price').text("");
+                newOptionSet.find('.option').html('<option value="">Выберите опцию</option>'); // Очистка опций
+                newOptionSet.find('.value').html('<option value="">Выберите значение</option>'); // Очистка значений
+                $('#option_set_container').append(newOptionSet);
+                bindOptionSetEvents(newOptionSet);
+                loadOptions('#source_product', newOptionSet.find('.option')); // Загрузка опций для нового набора
+            });
+
+            $('#save_option_set').click(function () {
                 let data = {
                     source_product_id: $('#source_product').val(),
-                    source_option_id: $('#source_option').val(),
-                    source_value_id: $('#source_value').val(),
-                    targets: []
+                    option_sets: []
                 };
 
-                $('.target_block').each(function () {
-                    data.targets.push({
-                        target_product_id: $(this).find('.target_product').val(),
-                        target_option_id: $(this).find('.target_option').val(),
-                        target_value_id: $(this).find('.target_value').val()
+                $('.option_set_block').each(function () {
+                    data.option_sets.push({
+                        option_id: $(this).find('.option').val(),
+                        value_id: $(this).find('.value').val()
                     });
                 });
 
-                $.post('save_link.php', JSON.stringify(data), function (response) {
+                $.post('save_option_set.php', JSON.stringify(data), function (response) {
                     alert(response.message);
-                    loadLinks();
+                    loadOptionSets();
                 }, 'json');
             });
 
-            loadLinks();
+            loadOptionSets();
             loadLog();
             $('#update_all_prices').click(updateAllPrices);
         });
     </script>
 </body>
+
 </html>

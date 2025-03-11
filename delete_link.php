@@ -10,9 +10,9 @@ if (!isset($data['id'])) {
     exit;
 }
 
-// Удаляем указанную связку
-$stmt = $pdo->prepare("DELETE FROM product_links WHERE id = :id");
+// Удаляем указанный набор опций
+$stmt = $pdo->prepare("DELETE FROM product_option_sets WHERE id = :id");
 $stmt->execute(['id' => (int)$data['id']]);
 
-echo json_encode(['status' => 'success', 'message' => 'Связка удалена']);
+echo json_encode(['status' => 'success', 'message' => 'Набор опций удален']);
 ?>
